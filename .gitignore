@@ -1,0 +1,24 @@
+node_modules
+dist
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
+
+# Variables d'environnement et secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+firebase-service-account.json
+.vercel
+
+# Build artifacts copied to api/ for Vercel
+api/shared/
+api/server/
+# Bundled serverless function in _lib/ must be committed for Vercel
+!api/_lib/
+!api/_lib/serverless-app.js
+!api/_lib/serverless-app.js.map
+.env*.local
