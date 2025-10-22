@@ -118,12 +118,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication endpoints
   app.post("/api/auth/login", authRateLimit.middleware(), validateContentType(), validateRequestSize(), validateLogin, async (req: ValidatedRequest, res: Response) => {
     try {
-      const { email, password } = req.validatedBody || req.body;
+      const { email, password } = (req.validatedBody || req.body) as { email: string; password: string };
 
-      // For now, we'll use simple email-based auth during transition
-      // In production, you'd verify the password against a database
-      if (!isAdminAuthorized(email)) {
-        return res.status(401).json({ 
+      if (!authService.isAuthorizedAdminEmail(email)) {
+        return res.status(401).json({
+          error: 'Invalid credentials',
+          code: 'INVALID_CREDENTIALS'
+        });
+      }
+
+      if (!authService.verifyPassword(email, password)) {
+        return res.status(401).json({
           error: 'Invalid credentials',
           code: 'INVALID_CREDENTIALS'
         });
