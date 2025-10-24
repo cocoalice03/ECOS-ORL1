@@ -14,6 +14,13 @@ vite.config.ts.*
 firebase-service-account.json
 .vercel
 
+# Firebase cache and debug logs
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+ui-debug.log
+firestore-debug.log
+
 # Build artifacts copied to api/ for Vercel
 api/shared/
 api/server/

@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Users collection - users can read/write their own data, admins can read all
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) || isAdmin();
+    }
+
+    // Scenarios collection - authenticated users can read, only admins can write
+    match /scenarios/{scenarioId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Sessions collection - users can read/write their own sessions
+    match /sessions/{sessionId} {
+      allow read: if isAuthenticated() &&
+                     (resource.data.studentEmail == request.auth.token.email || isAdmin());
+      allow create: if isAuthenticated() &&
+                       request.resource.data.studentEmail == request.auth.token.email;
+      allow update: if isAuthenticated() &&
+                       (resource.data.studentEmail == request.auth.token.email || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Exchanges (messages) collection - users can read/write their own exchanges
+    match /exchanges/{exchangeId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Evaluations collection - users can read their own evaluations, admins can read all
+    match /evaluations/{evaluationId} {
+      allow read: if isAuthenticated() &&
+                     (resource.data.studentEmail == request.auth.token.email || isAdmin());
+      allow write: if isAuthenticated();
+    }
+
+    // Training sessions collection - authenticated users can read, admins can write
+    match /training_sessions/{sessionId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Default deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

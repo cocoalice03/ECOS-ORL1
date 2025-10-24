@@ -19,7 +19,10 @@
     "deploy:production": "./scripts/deploy-production.sh",
     "validate:env": "node scripts/validate-env.js",
     "test:local": "npm run validate:env && PORT=5002 npm run dev & sleep 10 && curl -f http://localhost:5002/api/health && curl -f http://localhost:5002/api/ecos/scenarios && kill %1",
-    "deploy:safe": "npm run validate:env && npm run check && npm run deploy:production"
+    "deploy:safe": "npm run validate:env && npm run check && npm run deploy:production",
+    "firebase:deploy:rules": "firebase deploy --only firestore:rules,storage:rules",
+    "firebase:deploy:all": "firebase deploy",
+    "firebase:emulators": "firebase emulators:start"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
