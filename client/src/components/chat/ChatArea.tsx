@@ -1,7 +1,9 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { UserStatus, ChatExchange } from "@/lib/api";
 import ChatMessage from "./ChatMessage";
 import ChatInput from "./ChatInput";
+import VoiceMicrophone from "./VoiceMicrophone";
+import { MessageSquare, Mic } from "lucide-react";
 
 interface ChatAreaProps {
   messages: ChatExchange[];
@@ -19,6 +21,7 @@ export default function ChatArea({
   isLoading 
 }: ChatAreaProps) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [inputMode, setInputMode] = useState<'text' | 'voice'>('text');
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -26,6 +29,13 @@ export default function ChatArea({
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   }, [messages, isTyping]);
+
+  const handleVoiceTranscript = (transcript: string) => {
+    // When voice transcript is received, send it as a question
+    if (transcript.trim()) {
+      onSendQuestion(transcript);
+    }
+  };
 
   return (
     <div className="flex-grow flex flex-col bg-neutral-50 p-4 md:p-6">
@@ -92,11 +102,47 @@ export default function ChatArea({
         )}
       </div>
       
+      {/* Mode toggle */}
+      <div className="flex justify-center mb-3">
+        <div className="inline-flex rounded-lg border border-neutral-200 bg-white p-1">
+          <button
+            onClick={() => setInputMode('text')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              inputMode === 'text'
+                ? 'bg-primary text-white'
+                : 'text-neutral-600 hover:text-neutral-900'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Texte
+          </button>
+          <button
+            onClick={() => setInputMode('voice')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              inputMode === 'voice'
+                ? 'bg-primary text-white'
+                : 'text-neutral-600 hover:text-neutral-900'
+            }`}
+          >
+            <Mic className="w-4 h-4" />
+            Voix (GPT-4o Realtime)
+          </button>
+        </div>
+      </div>
+
       {/* Input area */}
-      <ChatInput 
-        onSendQuestion={onSendQuestion}
-        isDisabled={isTyping || (userStatus?.limitReached ?? false)} 
-      />
+      {inputMode === 'text' ? (
+        <ChatInput 
+          onSendQuestion={onSendQuestion}
+          isDisabled={isTyping || (userStatus?.limitReached ?? false)} 
+        />
+      ) : (
+        <div className="bg-white rounded-xl p-4 shadow-card">
+          <VoiceMicrophone 
+            onTranscript={handleVoiceTranscript}
+          />
+        </div>
+      )}
     </div>
   );
 }

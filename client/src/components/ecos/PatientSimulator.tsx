@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Send, User, Bot } from "lucide-react";
+import { Clock, Send, User, Bot, MessageSquare, Mic } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { getScenarioIdWithFallback, debugSessionData } from "@/utils/sessionUtils";
+import VoiceMicrophone from "@/components/chat/VoiceMicrophone";
 
 interface PatientSimulatorProps {
   sessionId: string;
@@ -27,6 +28,7 @@ export default function PatientSimulator({ sessionId, email, onSessionEnd, onSho
   const [currentQuery, setCurrentQuery] = useState("");
   const [sessionStartTime] = useState(new Date());
   const [remainingTime, setRemainingTime] = useState(25 * 60); // 25 minutes in seconds
+  const [inputMode, setInputMode] = useState<'text' | 'voice'>('text');
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Countdown timer effect
@@ -302,29 +304,73 @@ export default function PatientSimulator({ sessionId, email, onSessionEnd, onSho
             )}
           </div>
 
-          {/* Input Area */}
-          <div className="flex space-x-2 min-w-0">
-            <Textarea
-              value={currentQuery}
-              onChange={(e) => setCurrentQuery(e.target.value)}
-              placeholder="Posez votre question au patient..."
-              className="flex-1 border-2 border-blue-500 resize-none"
-              rows={2}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-            />
-            <Button
-              onClick={handleSendMessage}
-              disabled={!currentQuery.trim() || sendMessageMutation.isPending}
-              className="self-end"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
+          {/* Mode toggle */}
+          <div className="flex justify-center mb-3">
+            <div className="inline-flex rounded-lg border border-neutral-200 bg-white p-1">
+              <button
+                onClick={() => setInputMode('text')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  inputMode === 'text'
+                    ? 'bg-blue-500 text-white'
+                    : 'text-neutral-600 hover:text-neutral-900'
+                }`}
+              >
+                <MessageSquare className="w-4 h-4" />
+                Texte
+              </button>
+              <button
+                onClick={() => setInputMode('voice')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  inputMode === 'voice'
+                    ? 'bg-blue-500 text-white'
+                    : 'text-neutral-600 hover:text-neutral-900'
+                }`}
+              >
+                <Mic className="w-4 h-4" />
+                Voix
+              </button>
+            </div>
           </div>
+
+          {/* Input Area */}
+          {inputMode === 'text' ? (
+            <div className="flex space-x-2 min-w-0">
+              <Textarea
+                value={currentQuery}
+                onChange={(e) => setCurrentQuery(e.target.value)}
+                placeholder="Posez votre question au patient..."
+                className="flex-1 border-2 border-blue-500 resize-none"
+                rows={2}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+              />
+              <Button
+                onClick={handleSendMessage}
+                disabled={!currentQuery.trim() || sendMessageMutation.isPending}
+                className="self-end"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="border-2 border-blue-500 rounded-lg p-4 bg-white">
+              <VoiceMicrophone 
+                onTranscript={(transcript) => {
+                  if (transcript.trim()) {
+                    setCurrentQuery(transcript);
+                    // Auto-send after voice input
+                    setTimeout(() => {
+                      sendMessageMutation.mutate(transcript);
+                    }, 500);
+                  }
+                }}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

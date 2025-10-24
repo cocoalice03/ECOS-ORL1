@@ -2255,5 +2255,26 @@ Format JSON attendu :
     }
   });
 
+  // OpenAI Realtime API session endpoint
+  app.post('/api/realtime/session', asyncHandler(async (req: Request, res: Response) => {
+    try {
+      const apiKey = process.env.OPENAI_API_KEY;
+      
+      if (!apiKey) {
+        throw new APIError('OpenAI API key not configured', 500);
+      }
+
+      // Return the API key for client-side WebSocket connection
+      // Note: In production, you should create ephemeral tokens instead
+      res.status(200).json({
+        token: apiKey,
+        model: 'gpt-4o-realtime-preview-2024-10-01'
+      });
+    } catch (error: any) {
+      apiLogger.error('Failed to create realtime session', { error: error.message });
+      sendErrorResponse(res, error);
+    }
+  }));
+
   return httpServer;
 }
