@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Production Deployment Script for ECOS Infirmier
+# Production Deployment Script for ECOS ORL
 # Ensures bulletproof deployment with comprehensive validation
 
 set -e  # Exit on any error
@@ -124,10 +124,10 @@ echo "⏳ Waiting for deployment to be ready (30 seconds)..."
 sleep 30
 
 # Get the deployment URL
-DEPLOYMENT_URL=$(npx vercel ls | grep "ecos-infirmier-b-20" | head -1 | awk '{print $2}')
+DEPLOYMENT_URL=$(npx vercel ls | grep "ecos-orl-1" | head -1 | awk '{print $2}')
 if [ -z "$DEPLOYMENT_URL" ]; then
     print_warning "Could not determine deployment URL"
-    DEPLOYMENT_URL="ecos-infirmier-b-20-five.vercel.app"
+    DEPLOYMENT_URL="ecos-orl-1.vercel.app"
 fi
 
 echo "🔍 Testing production deployment at: https://$DEPLOYMENT_URL"

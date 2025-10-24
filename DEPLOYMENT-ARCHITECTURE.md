@@ -77,7 +77,7 @@ This document outlines the comprehensive Single Page Application (SPA) deploymen
 
 **Actual Project Configuration**: `.vercel/project.json`
 ```json
-{"projectId":"prj_WBymzc8zgwl7iOhkoy7aJ8DQl8sk","orgId":"team_g0ZTAeL1ECYQ68C7t3Knaxk2","projectName":"ecos-infirmier-b-20"}
+{"projectId":"prj_WBymzc8zgwl7iOhkoy7aJ8DQl8sk","orgId":"team_g0ZTAeL1ECYQ68C7t3Knaxk2","projectName":"ecos-orl-1"}
 ```
 
 ### 2. Serverless Application Architecture

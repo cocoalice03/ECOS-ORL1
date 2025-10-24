@@ -107,7 +107,7 @@ api/
    - Import directly from source files
 
 3. **Check Vercel Logs in Dashboard**
-   - Go to: https://vercel.com/dave234561s-projects/ecos-infirmier-b-20
+   - Go to: https://vercel.com/dave234561s-projects/ecos-orl-1
    - Click on latest deployment
    - View Function Logs to see actual error
 

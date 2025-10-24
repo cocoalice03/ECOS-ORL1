@@ -9,7 +9,7 @@
 const https = require('https');
 const { JSDOM } = require('jsdom');
 
-const SITE_URL = 'https://ecos-infirmier-b.vercel.app/';
+const SITE_URL = 'https://ecos-orl-1.vercel.app/';
 
 async function fetchSiteContent() {
   return new Promise((resolve, reject) => {

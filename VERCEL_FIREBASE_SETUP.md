@@ -1,7 +1,7 @@
 # Vercel Firebase Environment Variables Setup
 
 ## Problem
-The production deployment at `https://ecos-infirmier-b-20.vercel.app` is failing with:
+The production deployment at `https://ecos-orl-1.vercel.app` is failing with:
 ```
 POST /api/auth/firebase-login 500 (Internal Server Error)
 FUNCTION_INVOCATION_FAILED
@@ -16,12 +16,12 @@ You must add these three environment variables to your Vercel project:
 
 ### 1. FIREBASE_PROJECT_ID
 - **Description**: Your Firebase project ID
-- **Example**: `ecos-infirmier-project`
+- **Example**: `ecos-orl-1`
 - **Where to find**: Firebase Console → Project Settings → General → Project ID
 
 ### 2. FIREBASE_CLIENT_EMAIL
 - **Description**: Service account email for Firebase Admin SDK
-- **Example**: `firebase-adminsdk-xxxxx@ecos-infirmier-project.iam.gserviceaccount.com`
+- **Example**: `firebase-adminsdk-xxxxx@ecos-orl-1.iam.gserviceaccount.com`
 - **Where to find**: Firebase Console → Project Settings → Service Accounts → Firebase Admin SDK
 
 ### 3. FIREBASE_PRIVATE_KEY
@@ -35,7 +35,7 @@ You must add these three environment variables to your Vercel project:
 ### Option 1: Via Vercel Dashboard (Recommended)
 
 1. Go to your Vercel project: https://vercel.com/dashboard
-2. Select your project: `ecos-infirmier-b-20`
+2. Select your project: `ecos-orl-1`
 3. Go to **Settings** → **Environment Variables**
 4. Add each variable:
    - **Key**: `FIREBASE_PROJECT_ID`
@@ -106,7 +106,7 @@ Extract the three values marked above.
 
 After adding the environment variables and redeploying:
 
-1. Visit: https://ecos-infirmier-b-20.vercel.app/login
+1. Visit: https://ecos-orl-1.vercel.app/login
 2. Try to log in with your credentials
 3. Check browser console - you should **NOT** see:
    - `FUNCTION_INVOCATION_FAILED`
