@@ -4,154 +4,49 @@ import {
   varchar,
   timestamp,
   jsonb,
-  index,
   serial,
   integer,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Session storage table (required for Replit Auth)
-export const sessions = pgTable(
-  "sessions",
-  {
-    sid: varchar("sid").primaryKey(),
-    sess: jsonb("sess").notNull(),
-    expire: timestamp("expire").notNull(),
-  },
-  (table) => [index("IDX_session_expire").on(table.expire)],
-);
+// ============================================================================
+// USER MANAGEMENT
+// ============================================================================
 
-// User storage table (required for Replit Auth)
+// Users table - stores all user accounts
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().notNull(),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).unique().notNull(),
+  firstName: varchar("first_name", { length: 255 }),
+  lastName: varchar("last_name", { length: 255 }),
+  profileImageUrl: varchar("profile_image_url", { length: 500 }),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type InsertUser = typeof users.$inferInsert;
 
-// Chat exchanges (question-answer pairs)
-export const exchanges = pgTable("exchanges", {
-  id: serial("id_exchange").primaryKey(),
-  email: text("utilisateur_email").notNull(),
-  question: text("question").notNull(),
-  response: text("reponse").notNull(),
-  timestamp: timestamp("timestamp").notNull().defaultNow(),
-  sessionId: text("session_id"), // Link to ECOS session
-  scenarioId: integer("scenario_id"), // Link to scenario
-  studentRole: text("student_role"), // infirmier, docteur, étudiant
-  contextData: jsonb("context_data"), // Additional metadata
-});
+// ============================================================================
+// SCENARIOS
+// ============================================================================
 
-export const insertExchangeSchema = createInsertSchema(exchanges).pick({
-  email: true,
-  question: true,
-  response: true,
-  sessionId: true,
-  scenarioId: true,
-  studentRole: true,
-  contextData: true,
-});
-
-// Daily question counters
-export const dailyCounters = pgTable("daily_counters", {
-  email: text("utilisateur_email").notNull(),
-  date: timestamp("date").notNull(),
-  count: integer("count").notNull().default(0),
-});
-
-export const insertCounterSchema = createInsertSchema(dailyCounters).pick({
-  email: true,
-  date: true,
-  count: true,
-});
-
-// ECOS Scenarios table
-export const ecosScenarios = pgTable("ecos_scenarios", {
+// Scenarios table - medical training scenarios for ECOS
+export const scenarios = pgTable("scenarios", {
   id: serial("id").primaryKey(),
   title: varchar("title", { length: 255 }).notNull(),
-  description: text("description").notNull(),
+  description: text("description"),
   patientPrompt: text("patient_prompt").notNull(),
-  evaluationCriteria: jsonb("evaluation_criteria").notNull(),
+  evaluationCriteria: jsonb("evaluation_criteria"),
   pineconeIndex: varchar("pinecone_index", { length: 255 }),
   imageUrl: varchar("image_url", { length: 500 }),
   createdBy: varchar("created_by", { length: 255 }).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// ECOS Sessions table
-export const ecosSessions = pgTable("ecos_sessions", {
-  id: serial("id").primaryKey(),
-  scenarioId: integer("scenario_id").references(() => ecosScenarios.id),
-  studentEmail: varchar("student_email", { length: 255 }).notNull(),
-  trainingSessionId: integer("training_session_id").references(() => trainingSessions.id),
-  startTime: timestamp("start_time").defaultNow(),
-  endTime: timestamp("end_time"),
-  status: varchar("status", { length: 50 }).default("in_progress"),
-});
-
-// ECOS Evaluations table
-export const ecosEvaluations = pgTable("ecos_evaluations", {
-  id: serial("id").primaryKey(),
-  sessionId: integer("session_id").references(() => ecosSessions.id),
-  criterionId: varchar("criterion_id", { length: 50 }).notNull(),
-  score: integer("score").notNull(),
-  feedback: text("feedback"),
-});
-
-// ECOS Reports table
-export const ecosReports = pgTable("ecos_reports", {
-  id: serial("id").primaryKey(),
-  sessionId: integer("session_id").references(() => ecosSessions.id),
-  summary: text("summary").notNull(),
-  strengths: text("strengths").array(),
-  weaknesses: text("weaknesses").array(),
-  recommendations: text("recommendations").array(),
-});
-
-// ECOS Session Messages table (for chat history)
-export const ecosMessages = pgTable("ecos_messages", {
-  id: serial("id").primaryKey(),
-  sessionId: integer("session_id").references(() => ecosSessions.id),
-  role: varchar("role", { length: 20 }).notNull(), // 'user' or 'assistant'
-  content: text("content").notNull(),
-  timestamp: timestamp("timestamp").defaultNow(),
-});
-
-// Training Sessions table (sessions de formation)
-export const trainingSessions = pgTable("training_sessions", {
-  id: serial("id").primaryKey(),
-  title: varchar("title", { length: 255 }).notNull(),
-  description: text("description"),
-  startDate: timestamp("start_date").notNull(),
-  endDate: timestamp("end_date").notNull(),
-  createdBy: varchar("created_by", { length: 255 }).notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-// Training Session Scenarios table (relation many-to-many)
-export const trainingSessionScenarios = pgTable("training_session_scenarios", {
-  id: serial("id").primaryKey(),
-  trainingSessionId: integer("training_session_id").references(() => trainingSessions.id),
-  scenarioId: integer("scenario_id").references(() => ecosScenarios.id),
-});
-
-// Training Session Students table (étudiants assignés à une session)
-export const trainingSessionStudents = pgTable("training_session_students", {
-  id: serial("id").primaryKey(),
-  trainingSessionId: integer("training_session_id").references(() => trainingSessions.id),
-  studentEmail: varchar("student_email", { length: 255 }).notNull(),
-  assignedAt: timestamp("assigned_at").defaultNow(),
-});
-
-// Create insert schemas for ECOS tables
-export const insertEcosScenarioSchema = createInsertSchema(ecosScenarios).pick({
+export const insertScenarioSchema = createInsertSchema(scenarios).pick({
   title: true,
   description: true,
   patientPrompt: true,
@@ -161,23 +56,116 @@ export const insertEcosScenarioSchema = createInsertSchema(ecosScenarios).pick({
   createdBy: true,
 });
 
-export const insertEcosSessionSchema = createInsertSchema(ecosSessions).pick({
-  scenarioId: true,
+export type Scenario = typeof scenarios.$inferSelect;
+export type InsertScenario = z.infer<typeof insertScenarioSchema>;
+
+// ============================================================================
+// ECOS SESSIONS
+// ============================================================================
+
+// Sessions table - ECOS examination sessions
+export const sessions = pgTable("sessions", {
+  id: serial("id").primaryKey(),
+  sessionId: varchar("session_id", { length: 255 }).unique().notNull(), // String ID like "session_1_123456_abc"
+  studentEmail: varchar("student_email", { length: 255 }).notNull(),
+  scenarioId: integer("scenario_id").notNull().references(() => scenarios.id),
+  status: varchar("status", { length: 50 }).default("active"),
+  startTime: timestamp("start_time").defaultNow(),
+  endTime: timestamp("end_time"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSessionSchema = createInsertSchema(sessions).pick({
+  sessionId: true,
   studentEmail: true,
+  scenarioId: true,
   status: true,
 });
 
-export const insertEcosEvaluationSchema = createInsertSchema(ecosEvaluations).pick({
-  sessionId: true,
-  criterionId: true,
-  score: true,
-  feedback: true,
+export type Session = typeof sessions.$inferSelect;
+export type InsertSession = z.infer<typeof insertSessionSchema>;
+
+// ============================================================================
+// MESSAGES / EXCHANGES
+// ============================================================================
+
+// Exchanges table - chat messages between student and virtual patient
+export const exchanges = pgTable("exchanges", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => sessions.id),
+  role: varchar("role", { length: 20 }).notNull(), // 'user' or 'assistant'
+  question: text("question"),
+  response: text("response"),
+  timestamp: timestamp("timestamp").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertEcosMessageSchema = createInsertSchema(ecosMessages).pick({
+export const insertExchangeSchema = createInsertSchema(exchanges).pick({
   sessionId: true,
   role: true,
-  content: true,
+  question: true,
+  response: true,
+});
+
+export type Exchange = typeof exchanges.$inferSelect;
+export type InsertExchange = z.infer<typeof insertExchangeSchema>;
+
+// ============================================================================
+// EVALUATIONS
+// ============================================================================
+
+// Evaluations table - ECOS assessment results
+export const evaluations = pgTable("evaluations", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => sessions.id),
+  scenarioId: integer("scenario_id").notNull().references(() => scenarios.id),
+  studentEmail: varchar("student_email", { length: 255 }).notNull(),
+  scores: jsonb("scores").default('{}'),
+  globalScore: integer("global_score").default(0),
+  strengths: text("strengths").array().default([]),
+  weaknesses: text("weaknesses").array().default([]),
+  recommendations: text("recommendations").array().default([]),
+  feedback: text("feedback"),
+  heuristic: jsonb("heuristic"),
+  llmScorePercent: integer("llm_score_percent"),
+  criteriaDetails: jsonb("criteria_details"),
+  evaluatedAt: timestamp("evaluated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertEvaluationSchema = createInsertSchema(evaluations).pick({
+  sessionId: true,
+  scenarioId: true,
+  studentEmail: true,
+  scores: true,
+  globalScore: true,
+  strengths: true,
+  weaknesses: true,
+  recommendations: true,
+  feedback: true,
+  heuristic: true,
+  llmScorePercent: true,
+  criteriaDetails: true,
+});
+
+export type Evaluation = typeof evaluations.$inferSelect;
+export type InsertEvaluation = z.infer<typeof insertEvaluationSchema>;
+
+// ============================================================================
+// TRAINING SESSIONS
+// ============================================================================
+
+// Training Sessions table - organized training sessions for teachers
+export const trainingSessions = pgTable("training_sessions", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  createdBy: varchar("created_by", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertTrainingSessionSchema = createInsertSchema(trainingSessions).pick({
@@ -188,44 +176,37 @@ export const insertTrainingSessionSchema = createInsertSchema(trainingSessions).
   createdBy: true,
 });
 
+export type TrainingSession = typeof trainingSessions.$inferSelect;
+export type InsertTrainingSession = z.infer<typeof insertTrainingSessionSchema>;
+
+// Training Session Scenarios table - many-to-many relationship
+export const trainingSessionScenarios = pgTable("training_session_scenarios", {
+  id: serial("id").primaryKey(),
+  trainingSessionId: integer("training_session_id").notNull().references(() => trainingSessions.id),
+  scenarioId: integer("scenario_id").notNull().references(() => scenarios.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const insertTrainingSessionScenarioSchema = createInsertSchema(trainingSessionScenarios).pick({
   trainingSessionId: true,
   scenarioId: true,
+});
+
+export type TrainingSessionScenario = typeof trainingSessionScenarios.$inferSelect;
+export type InsertTrainingSessionScenario = z.infer<typeof insertTrainingSessionScenarioSchema>;
+
+// Training Session Students table - student assignments to training sessions
+export const trainingSessionStudents = pgTable("training_session_students", {
+  id: serial("id").primaryKey(),
+  trainingSessionId: integer("training_session_id").notNull().references(() => trainingSessions.id),
+  studentEmail: varchar("student_email", { length: 255 }).notNull(),
+  assignedAt: timestamp("assigned_at").defaultNow(),
 });
 
 export const insertTrainingSessionStudentSchema = createInsertSchema(trainingSessionStudents).pick({
   trainingSessionId: true,
   studentEmail: true,
 });
-
-// Types for TypeScript
-export type Exchange = typeof exchanges.$inferSelect;
-export type InsertExchange = z.infer<typeof insertExchangeSchema>;
-
-export type DailyCounter = typeof dailyCounters.$inferSelect;
-export type InsertCounter = z.infer<typeof insertCounterSchema>;
-
-// ECOS Types
-export type EcosScenario = typeof ecosScenarios.$inferSelect;
-export type InsertEcosScenario = z.infer<typeof insertEcosScenarioSchema>;
-
-export type EcosSession = typeof ecosSessions.$inferSelect;
-export type InsertEcosSession = z.infer<typeof insertEcosSessionSchema>;
-
-export type EcosEvaluation = typeof ecosEvaluations.$inferSelect;
-export type InsertEcosEvaluation = z.infer<typeof insertEcosEvaluationSchema>;
-
-export type EcosReport = typeof ecosReports.$inferSelect;
-
-export type EcosMessage = typeof ecosMessages.$inferSelect;
-export type InsertEcosMessage = z.infer<typeof insertEcosMessageSchema>;
-
-// Training Session Types
-export type TrainingSession = typeof trainingSessions.$inferSelect;
-export type InsertTrainingSession = z.infer<typeof insertTrainingSessionSchema>;
-
-export type TrainingSessionScenario = typeof trainingSessionScenarios.$inferSelect;
-export type InsertTrainingSessionScenario = z.infer<typeof insertTrainingSessionScenarioSchema>;
 
 export type TrainingSessionStudent = typeof trainingSessionStudents.$inferSelect;
 export type InsertTrainingSessionStudent = z.infer<typeof insertTrainingSessionStudentSchema>;
