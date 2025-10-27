@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
-import { users, ecosScenarios, ecosSessions, ecosMessages, ecosEvaluations, trainingSessions, trainingSessionStudents, trainingSessionScenarios } from '../shared/schema.js';
+import { users, scenarios, sessions, exchanges, evaluations, trainingSessions, trainingSessionStudents, trainingSessionScenarios } from '../shared/schema.js';
 import { unifiedDb } from './services/unified-database.service.js';
 import { eq, and } from 'drizzle-orm';
 import { scenarioSyncService } from './services/scenario-sync.service.js';

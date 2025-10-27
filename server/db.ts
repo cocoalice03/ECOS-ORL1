@@ -1,14 +1,11 @@
 
 import { unifiedDb } from './services/unified-database.service.js';
-import { 
-  users, 
-  sessions, 
-  exchanges, 
-  dailyCounters, 
-  ecosScenarios, 
-  ecosSessions, 
-  ecosMessages, 
-  ecosEvaluations,
+import {
+  users,
+  sessions,
+  exchanges,
+  scenarios,
+  evaluations,
   trainingSessions,
   trainingSessionStudents,
   trainingSessionScenarios
@@ -88,11 +85,8 @@ export {
   users,
   sessions,
   exchanges,
-  dailyCounters,
-  ecosScenarios,
-  ecosSessions,
-  ecosMessages,
-  ecosEvaluations,
+  scenarios,
+  evaluations,
   trainingSessions,
   trainingSessionStudents,
   trainingSessionScenarios
