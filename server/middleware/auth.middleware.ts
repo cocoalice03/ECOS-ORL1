@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import { scryptSync, timingSafeEqual } from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
@@ -31,15 +32,28 @@ class AuthenticationService {
   private readonly credentialStore: Map<string, StoredCredential>;
   private readonly bootstrapAdminEmails: Set<string>;
   private readonly allowBootstrapFallback: boolean;
+  private readonly supabaseClient: ReturnType<typeof createClient> | null;
   
   constructor() {
     // Use environment variable for JWT secret, fallback to a development secret
     this.jwtSecret = process.env.JWT_SECRET || 'development-secret-key-change-in-production';
-    
+
     if (this.jwtSecret === 'development-secret-key-change-in-production' && process.env.NODE_ENV === 'production') {
       console.error('❌ SECURITY WARNING: JWT_SECRET not set in production! This is a security risk!');
     }
-    
+
+    // Initialize Supabase client for database operations
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (supabaseUrl && supabaseKey) {
+      this.supabaseClient = createClient(supabaseUrl, supabaseKey);
+      console.log('✅ Supabase client initialized for admin authorization');
+    } else {
+      this.supabaseClient = null;
+      console.warn('⚠️ Supabase credentials not found - admin database checks disabled');
+    }
+
     this.credentialStore = new Map();
     this.bootstrapAdminEmails = new Set();
     this.allowBootstrapFallback = process.env.ALLOW_BOOTSTRAP_ADMIN === 'true' && process.env.NODE_ENV !== 'production';
@@ -47,24 +61,25 @@ class AuthenticationService {
       console.warn('⚠️ ALLOW_BOOTSTRAP_ADMIN is ignored in production to prevent insecure admin fallbacks.');
     }
 
-    // Load admin emails from environment variable or use fallback
+    // Initialize admin emails from environment variable
+    this.adminEmails = new Set();
+
+    // Load admin emails from environment variable as fallback
     const adminEmailsEnv = process.env.ADMIN_EMAILS;
     if (adminEmailsEnv) {
-      this.adminEmails = new Set(
-        adminEmailsEnv
-          .split(',')
-          .map(email => email.trim().toLowerCase())
-          .filter(email => this.isValidEmail(email))
-      );
-      console.log(`✅ Loaded ${this.adminEmails.size} admin emails from environment`);
-    } else {
-      // No fallback - require proper environment configuration
-      this.adminEmails = new Set();
-      console.error('❌ No admin emails configured! Set ADMIN_EMAILS environment variable.');
+      adminEmailsEnv
+        .split(',')
+        .map(email => email.trim().toLowerCase())
+        .filter(email => this.isValidEmail(email))
+        .forEach(email => this.adminEmails.add(email));
+      console.log(`✅ Loaded ${this.adminEmails.size} admin emails from ADMIN_EMAILS environment variable`);
     }
 
     this.initializeBootstrapAdmins();
     this.loadCredentialStore();
+
+    // Load admin emails from database (async, non-blocking)
+    this.loadAdminEmailsFromDatabase();
   }
 
   private normalizeEmail(email: string): string {
@@ -164,6 +179,46 @@ class AuthenticationService {
       }
     } catch (error) {
       console.error('❌ Failed to parse ADMIN_CREDENTIALS environment variable:', error);
+    }
+  }
+
+  private async loadAdminEmailsFromDatabase(): Promise<void> {
+    if (!this.supabaseClient) {
+      console.log('⏭️ Skipping database admin email load - Supabase client not initialized');
+      return;
+    }
+
+    try {
+      console.log('🔍 Loading admin emails from ecos_admins table...');
+
+      const { data, error } = await this.supabaseClient
+        .from('ecos_admins')
+        .select('email, role')
+        .eq('role', 'ADMIN');
+
+      if (error) {
+        console.error('❌ Failed to load admin emails from database:', error.message);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        console.warn('⚠️ No admin emails found in ecos_admins table');
+        return;
+      }
+
+      let loadedCount = 0;
+      for (const record of data) {
+        if (record.email && this.isValidEmail(record.email)) {
+          const normalizedEmail = this.normalizeEmail(record.email);
+          this.adminEmails.add(normalizedEmail);
+          loadedCount++;
+        }
+      }
+
+      console.log(`✅ Loaded ${loadedCount} admin email${loadedCount > 1 ? 's' : ''} from ecos_admins table`);
+      console.log(`📊 Total admin emails: ${this.adminEmails.size} (database + environment)`);
+    } catch (error) {
+      console.error('❌ Unexpected error loading admin emails from database:', error);
     }
   }
 
