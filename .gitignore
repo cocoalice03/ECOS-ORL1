@@ -11,7 +11,9 @@ vite.config.ts.*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.vercel-firebase
 firebase-service-account.json
+ecos-orl-1-firebase-adminsdk-*.json
 .vercel
 
 # Firebase cache and debug logs
