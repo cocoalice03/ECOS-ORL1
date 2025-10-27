@@ -1364,8 +1364,34 @@ export class UnifiedDatabaseService {
 
       // Get session database ID
       const session = await this.getSessionByStringId(evalData.sessionId);
-      if (!session || session.isFallback) {
-        throw new Error(`Session ${evalData.sessionId} not available in primary database`);
+      if (!session) {
+        throw new Error(`Session ${evalData.sessionId} not found in database or fallback`);
+      }
+
+      // If session is a fallback, store evaluation in fallback memory and return
+      if (session.isFallback) {
+        console.warn(`⚠️ Session ${evalData.sessionId} is in fallback mode - storing evaluation in memory`);
+        const fallbackRecord = {
+          id: `fallback-eval-${Date.now()}`,
+          session_id: session.id,
+          scenario_id: evalData.scenarioId,
+          student_email: evalData.studentEmail,
+          scores: evalData.scores,
+          global_score: evalData.globalScore,
+          strengths: evalData.strengths,
+          weaknesses: evalData.weaknesses,
+          recommendations: evalData.recommendations,
+          feedback: evalData.feedback,
+          heuristic: evalData.heuristic,
+          llm_score_percent: typeof evalData.llmScorePercent === 'number' ? evalData.llmScorePercent : null,
+          criteria_details: evalData.criteriaDetails,
+          evaluated_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          isFallback: true
+        };
+        this.fallbackEvaluations.set(evalData.sessionId, fallbackRecord);
+        console.log(`✅ Stored evaluation for session ${evalData.sessionId} in fallback memory`);
+        return fallbackRecord;
       }
 
       console.log(`📤 Attempting to store evaluation for session ${evalData.sessionId}`);
@@ -1430,6 +1456,7 @@ export class UnifiedDatabaseService {
       });
       const fallbackSession = this.fallbackSessions.get(evalData.sessionId);
       const fallbackRecord = {
+        id: `fallback-eval-${Date.now()}`,
         session_id: fallbackSession?.id ?? null,
         scenario_id: evalData.scenarioId,
         student_email: evalData.studentEmail,
