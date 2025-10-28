@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Send, User, Bot } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { getScenarioIdWithFallback, debugSessionData } from "@/utils/sessionUtils";
+import { ImageZoomDialog } from "@/components/ui/ImageZoomDialog";
 
 interface PatientSimulatorProps {
   sessionId: string;
@@ -203,12 +204,13 @@ export default function PatientSimulator({ sessionId, email, onSessionEnd, onSho
         <CardHeader>
           <div className="flex justify-between items-start gap-4">
             <div className="flex gap-4 flex-1 min-w-0">
-              {/* Patient Image */}
+              {/* Patient Image with Zoom */}
               <div className="flex-shrink-0">
-                <img
+                <ImageZoomDialog
                   src={getScenarioImage()}
                   alt={session?.scenario?.title || "Patient"}
                   className="w-20 h-20 md:w-24 md:h-24 object-cover rounded-lg border-2 border-gray-200"
+                  buttonText="Examiner le tympan"
                 />
               </div>
 
