@@ -277,6 +277,254 @@ export default function EvaluationReport({ sessionId, email }: EvaluationReportP
     return <XCircle className="w-5 h-5 text-red-600" />;
   };
 
+  // Detect if this is a two-part structure evaluation
+  const isTwoPartStructure = (transformedEvaluation as any)?.type === 'two_part';
+  const partie1 = isTwoPartStructure ? (transformedEvaluation as any)?.partie_1 : null;
+  const partie2 = isTwoPartStructure ? (transformedEvaluation as any)?.partie_2 : null;
+  const scoreSur20 = isTwoPartStructure ? (transformedEvaluation as any)?.score_final_sur_20 : null;
+
+  // Render for TWO-PART structure (ORL specific)
+  if (isTwoPartStructure && partie1 && partie2) {
+    return (
+      <div className="max-w-4xl mx-auto p-6 space-y-6">
+        {/* Overall Score */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Résultat Global</span>
+              <div className="flex items-center gap-3">
+                <Badge variant="outline" className="text-lg px-3 py-1">
+                  {scoreSur20}/20
+                </Badge>
+                <Badge variant="secondary" className="text-lg px-3 py-1">
+                  {effectiveOverallScore}%
+                </Badge>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-4">
+              <Progress value={effectiveOverallScore} className="h-3" />
+            </div>
+            <div className="space-y-1 text-sm text-gray-600">
+              <p className="font-medium text-gray-700">Consultation ORL pédiatrique - OMA</p>
+              <p>{(transformedEvaluation as any)?.synthese || summaryText}</p>
+              {typeof report?.transcriptMessageCount === 'number' && (
+                <p className="text-xs text-gray-500">
+                  {report.transcriptMessageCount} échange{report.transcriptMessageCount > 1 ? 's' : ''} analysé{report.transcriptMessageCount > 1 ? 's' : ''}.
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* PARTIE 1: Aptitude clinique */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Partie 1 : {partie1.nom}</span>
+              <Badge variant="outline" className="text-lg">
+                {partie1.score_total}/{partie1.score_max} pts
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {partie1.items && Array.isArray(partie1.items) && partie1.items.map((item: any) => (
+              <div key={item.id} className="border-l-4 pl-4 py-2" style={{
+                borderColor: item.present ? '#10b981' : '#ef4444'
+              }}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    {item.present ? (
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                    ) : (
+                      <XCircle className="w-5 h-5 text-red-600" />
+                    )}
+                    <h4 className="font-medium text-sm">{item.description}</h4>
+                  </div>
+                  <Badge variant={item.present ? "default" : "destructive"}>
+                    {item.points_obtenus} / {item.points_attribues || item.points} pt
+                  </Badge>
+                </div>
+                {item.justification && (
+                  <p className="text-sm text-gray-600 mb-2">{item.justification}</p>
+                )}
+                {item.elements_identifies && item.elements_identifies.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-xs font-medium text-gray-700 mb-1">Éléments identifiés :</p>
+                    <ul className="text-xs text-gray-600 list-disc list-inside">
+                      {item.elements_identifies.map((el: string, idx: number) => (
+                        <li key={idx}>{el}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {item.extraits && item.extraits.length > 0 && (
+                  <div className="mt-2 bg-gray-50 p-2 rounded">
+                    <p className="text-xs font-medium text-gray-700 mb-1">Extraits :</p>
+                    {item.extraits.map((extrait: string, idx: number) => (
+                      <p key={idx} className="text-xs text-gray-600 italic">"{extrait}"</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* PARTIE 2: Communications et attitudes */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Partie 2 : {partie2.nom}</span>
+              <Badge variant="outline" className="text-lg">
+                {partie2.score_total}/{partie2.score_max} pts
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {partie2.criteres && Array.isArray(partie2.criteres) && partie2.criteres.map((critere: any) => {
+              const percentage = (critere.score / (critere.max_score || 4)) * 100;
+              return (
+                <div key={critere.id} className="border-b border-gray-100 pb-4 last:border-b-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      {getScoreIcon(critere.score, critere.max_score || 4)}
+                      <h4 className="font-medium">{critere.nom}</h4>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-sm">
+                        {critere.niveau}
+                      </Badge>
+                      <span className={`font-semibold ${getScoreColor(critere.score, critere.max_score || 4)}`}>
+                        {critere.score}/{critere.max_score || 4}
+                      </span>
+                    </div>
+                  </div>
+                  <Progress value={percentage} className="mb-3" />
+
+                  {critere.justification && (
+                    <p className="text-sm text-gray-600 mb-3">{critere.justification}</p>
+                  )}
+
+                  {critere.critiques_positives && critere.critiques_positives.length > 0 && (
+                    <div className="mb-2">
+                      <p className="text-xs font-semibold text-green-700 mb-1 flex items-center gap-1">
+                        <TrendingUp className="w-4 h-4" /> Points positifs :
+                      </p>
+                      <ul className="text-sm text-gray-700 list-disc list-inside">
+                        {critere.critiques_positives.map((point: string, idx: number) => (
+                          <li key={idx}>{point}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {critere.axes_amelioration && critere.axes_amelioration.length > 0 && (
+                    <div className="mb-2">
+                      <p className="text-xs font-semibold text-orange-700 mb-1 flex items-center gap-1">
+                        <TrendingDown className="w-4 h-4" /> Axes d'amélioration :
+                      </p>
+                      <ul className="text-sm text-gray-700 list-disc list-inside">
+                        {critere.axes_amelioration.map((axe: string, idx: number) => (
+                          <li key={idx}>{axe}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {critere.phrases_cles && critere.phrases_cles.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-gray-700 mb-1">Phrases clés identifiées :</p>
+                      <ul className="text-xs text-gray-600 list-disc list-inside">
+                        {critere.phrases_cles.map((phrase: string, idx: number) => (
+                          <li key={idx}>{phrase}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {critere.extraits_pertinents && critere.extraits_pertinents.length > 0 && (
+                    <div className="mt-2 bg-gray-50 p-2 rounded">
+                      <p className="text-xs font-medium text-gray-700 mb-1">Extraits pertinents :</p>
+                      {critere.extraits_pertinents.map((extrait: string, idx: number) => (
+                        <p key={idx} className="text-xs text-gray-600 italic">"{extrait}"</p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+
+        {/* Forces majeures */}
+        {(transformedEvaluation as any)?.forces_majeures && (transformedEvaluation as any).forces_majeures.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-green-700">
+                <TrendingUp className="w-5 h-5" />
+                <span>Forces majeures</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {(transformedEvaluation as any).forces_majeures.map((force: string, idx: number) => (
+                  <li key={idx} className="flex items-start space-x-2">
+                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    <span className="text-gray-700">{force}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Faiblesses prioritaires */}
+        {(transformedEvaluation as any)?.faiblesses_prioritaires && (transformedEvaluation as any).faiblesses_prioritaires.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-orange-700">
+                <TrendingDown className="w-5 h-5" />
+                <span>Faiblesses prioritaires</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                {(transformedEvaluation as any).faiblesses_prioritaires.map((faiblesse: string, idx: number) => (
+                  <li key={idx} className="flex items-start space-x-2">
+                    <XCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                    <span className="text-gray-700">{faiblesse}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Recommandations */}
+        {recommendations && recommendations.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <AlertCircle className="w-5 h-5 text-blue-600" />
+                <span>Recommandations</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ol className="space-y-2 list-decimal list-inside">
+                {recommendations.map((rec: string, idx: number) => (
+                  <li key={idx} className="text-gray-700">{rec}</li>
+                ))}
+              </ol>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  }
+
+  // LEGACY STRUCTURE RENDER (existing)
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       {/* Overall Score */}

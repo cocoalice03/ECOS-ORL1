@@ -1761,6 +1761,211 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('🔍 [TRACE] usedCriteria[0]:', JSON.stringify(usedCriteria[0], null, 2));
       // DIAGNOSTIC LOGGING - END
 
+      // Detect criteria structure type
+      const detectCriteriaStructure = (criteria: any): 'two_part' | 'legacy' => {
+        if (criteria?.type === 'two_part_structure' && criteria?.partie_1 && criteria?.partie_2) {
+          console.log('🔍 [STRUCTURE] Detected two-part structure for ORL scenario');
+          return 'two_part';
+        }
+        console.log('🔍 [STRUCTURE] Using legacy criteria structure');
+        return 'legacy';
+      };
+
+      const structureType = detectCriteriaStructure(dbCriteria);
+
+      // TWO-PART STRUCTURE EVALUATION (ORL specific)
+      if (structureType === 'two_part') {
+        console.log('📊 [TWO-PART] Starting two-part evaluation for ORL scenario');
+
+        const partie1Items = dbCriteria.partie_1?.items || [];
+        const partie2Criteres = dbCriteria.partie_2?.criteres || [];
+
+        // Build specific prompt for two-part structure
+        const systemPrompt = `Tu es un examinateur ECOS spécialisé en pédiatrie ORL. Tu dois évaluer une consultation d'OMA (Otite Moyenne Aiguë) pédiatrique selon 2 parties distinctes.
+
+PARTIE 1 : APTITUDE CLINIQUE (10 points)
+Notation binaire stricte : pour chaque item, vérifie SA PRÉSENCE dans les échanges en utilisant la compréhension sémantique (pas seulement des mots-clés exacts).
+- Si élément présent/mentionné/abordé → points attribués
+- Si élément absent → 0 point
+Pas de nuance, pas de points partiels.
+
+Items à évaluer (10 items) :
+${partie1Items.map((item: any, idx: number) => `${idx + 1}. ${item.description} (${item.points} pt${item.points > 1 ? 's' : ''})
+   Critères: ${item.criteres_validation}
+   ${item.mots_cles_suggeres ? `Mots-clés suggérés: ${item.mots_cles_suggeres.join(', ')}` : ''}`).join('\n\n')}
+
+PARTIE 2 : COMMUNICATIONS ET ATTITUDES (10 points)
+Notation qualitative (0-4) basée sur 5 critères :
+- 0 = Insuffisante
+- 1 = Limite
+- 2 = Satisfaisante
+- 3 = Très satisfaisante
+- 4 = Remarquable
+
+Critères à évaluer :
+${partie2Criteres.map((crit: any, idx: number) => `${idx + 1}. ${crit.nom} (max ${crit.max_score} pts, poids ${crit.poids})
+   Description: ${crit.description}
+   Niveaux:
+${Object.entries(crit.niveaux || {}).map(([niveau, desc]) => `     ${niveau}: ${desc}`).join('\n')}`).join('\n\n')}
+
+Pour chaque critère de la Partie 2 :
+1. Identifier les phrases clés dans les échanges
+2. Attribuer un niveau de performance justifié (0-4)
+3. Citer des extraits pertinents de la conversation
+4. Donner critiques positives et axes d'amélioration
+
+IMPORTANT: Réponds UNIQUEMENT en JSON valide sans texte avant/après.
+
+Format JSON attendu :
+{
+  "partie_1": {
+    "items": [
+      {
+        "id": "item_id",
+        "description": "...",
+        "present": true/false,
+        "points_attribues": 0-1,
+        "points_obtenus": number,
+        "justification": "Explication détaillée de pourquoi présent ou absent",
+        "extraits": ["phrase exacte 1", "phrase exacte 2"],
+        "elements_identifies": ["élément spécifique 1", "élément 2"]
+      }
+    ],
+    "score_total": number
+  },
+  "partie_2": {
+    "criteres": [
+      {
+        "id": "critere_id",
+        "nom": "...",
+        "score": 0-4,
+        "niveau": "Satisfaisante/Très satisfaisante/etc",
+        "points_obtenus": number,
+        "phrases_cles": ["phrase clé identifiée 1", "phrase clé 2"],
+        "extraits_pertinents": ["extrait conversation 1", "extrait 2"],
+        "critiques_positives": ["point positif 1", "point positif 2"],
+        "axes_amelioration": ["amélioration 1", "amélioration 2"],
+        "justification": "Explication détaillée du niveau attribué"
+      }
+    ],
+    "score_total": number
+  },
+  "score_final_sur_20": number,
+  "score_final_percent": number,
+  "synthese": "Synthèse globale de la performance en 2-3 phrases",
+  "forces_majeures": ["force 1", "force 2"],
+  "faiblesses_prioritaires": ["faiblesse 1", "faiblesse 2"],
+  "recommandations": ["recommandation 1", "recommandation 2"]
+}`;
+
+        const userPrompt = `Scénario: ${scenario?.title || 'Consultation ORL pédiatrique - OMA'}
+
+Transcription de la consultation entre l'étudiant et la mère de l'enfant:
+${transcript}
+
+Évalue cette consultation selon les critères des 2 parties définies ci-dessus.`;
+
+        // Performance logging
+        const perfStart = Date.now();
+        console.log(`⏱️ [TWO-PART-PERF] Starting OpenAI evaluation at ${new Date(perfStart).toISOString()}`);
+
+        let llmJson: any = null;
+        try {
+          const completion = await openaiService.createCompletion({
+            model: "gpt-4o",
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.3,
+            max_completion_tokens: 2500,  // Increased for two-part structure
+            response_format: { type: "json_object" }
+          });
+
+          const perfEnd = Date.now();
+          console.log(`⏱️ [TWO-PART-PERF] OpenAI completed in ${perfEnd - perfStart}ms`);
+
+          const content = completion.choices?.[0]?.message?.content || '{}';
+          const cleanedContent = content.replace(/```json\s*\n?|```\s*$/g, '').trim();
+          llmJson = JSON.parse(cleanedContent);
+          console.log(`✅ [TWO-PART] JSON parsed successfully`);
+        } catch (err) {
+          const perfEnd = Date.now();
+          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+          console.error(`❌ [TWO-PART-PERF] OpenAI evaluation failed after ${perfEnd - perfStart}ms: ${errorMessage}`);
+
+          // Return error for two-part structure
+          return res.status(500).json({
+            error: 'Failed to evaluate session with two-part structure',
+            code: 'TWO_PART_EVALUATION_FAILED',
+            details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+          });
+        }
+
+        // Process two-part evaluation results
+        const partie1 = llmJson?.partie_1 || { items: [], score_total: 0 };
+        const partie2 = llmJson?.partie_2 || { criteres: [], score_total: 0 };
+        const scoreFinalSur20 = llmJson?.score_final_sur_20 || (partie1.score_total + partie2.score_total);
+        const scoreFinalPercent = llmJson?.score_final_percent || Math.round((scoreFinalSur20 / 20) * 100);
+
+        const evaluation = {
+          type: 'two_part',
+          partie_1: {
+            nom: 'Aptitude clinique',
+            items: partie1.items || [],
+            score_total: partie1.score_total || 0,
+            score_max: 10
+          },
+          partie_2: {
+            nom: 'Communications et attitudes',
+            criteres: partie2.criteres || [],
+            score_total: partie2.score_total || 0,
+            score_max: 10
+          },
+          score_final_sur_20: scoreFinalSur20,
+          overall_score: scoreFinalPercent,
+          synthese: llmJson?.synthese || '',
+          forces_majeures: llmJson?.forces_majeures || [],
+          faiblesses_prioritaires: llmJson?.faiblesses_prioritaires || [],
+          recommendations: llmJson?.recommandations || []
+        };
+
+        // Store evaluation in database (adapted format)
+        try {
+          await unifiedDb.createEvaluation({
+            sessionId,
+            scenarioId: scenarioId!,
+            studentEmail: email as string,
+            scores: {
+              partie_1: partie1.score_total,
+              partie_2: partie2.score_total,
+              final: scoreFinalSur20
+            },
+            globalScore: scoreFinalPercent,
+            strengths: llmJson?.forces_majeures || [],
+            weaknesses: llmJson?.faiblesses_prioritaires || [],
+            recommendations: llmJson?.recommandations || [],
+            feedback: llmJson?.synthese || `Évaluation two-part - Score: ${scoreFinalSur20}/20`,
+            llmScorePercent: scoreFinalPercent,
+            criteriaDetails: evaluation
+          });
+          console.log(`✅ [TWO-PART] Stored evaluation for session ${sessionId} in database`);
+        } catch (dbError: any) {
+          console.error(`❌ [TWO-PART] Failed to store evaluation:`, {
+            message: dbError?.message,
+            sessionId
+          });
+        }
+
+        return res.status(200).json({
+          evaluationId: `eval_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          sessionId,
+          evaluation,
+          message: 'Session evaluated successfully with two-part structure'
+        });
+      }
+
+      // LEGACY STRUCTURE EVALUATION (existing logic)
       // Build LLM prompt enforcing JSON output
       const systemPrompt = `Tu es un examinateur ECOS. Évalue la performance de l'étudiant en te basant UNIQUEMENT sur la transcription fournie.
 
