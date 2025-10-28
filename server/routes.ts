@@ -1608,7 +1608,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const dbCriteria = scenario?.evaluation_criteria || null;
 
       // Fetch conversation history using the correct method
-      const messages = await unifiedDb.getSessionMessages(sessionId, 50);
+      // Limit to 30 messages to optimize prompt size and reduce API latency
+      const messages = await unifiedDb.getSessionMessages(sessionId, 30);
 
       if (!messages || messages.length === 0) {
         return res.status(400).json({
@@ -1811,8 +1812,15 @@ Format JSON attendu :
       }).join('\n\n');
       const userPrompt = `Scénario: ${scenario?.title || 'Inconnu'}\n\nCritères d'évaluation:\n${rubricText}\n\nTranscription de la session:\n${transcript}`;
 
+      // Performance logging - Start timing
+      const perfStart = Date.now();
+      console.log(`⏱️ [PERF] Starting OpenAI evaluation at ${new Date(perfStart).toISOString()}`);
+      console.log(`📏 [PERF] Prompt size: ${systemPrompt.length + userPrompt.length} chars`);
+      console.log(`📊 [PERF] Criteria count: ${usedCriteria.length}`);
+
       let llmJson: any = null;
       try {
+        // Call OpenAI with reduced token limit and timeout
         const completion = await openaiService.createCompletion({
           model: "gpt-4o",
           messages: [
@@ -1820,15 +1828,29 @@ Format JSON attendu :
             { role: 'user', content: userPrompt }
           ],
           temperature: 0.3,
-          max_completion_tokens: 2000,
+          max_completion_tokens: 1500, // Reduced from 2000 to optimize latency
           response_format: { type: "json_object" }
         });
+
+        const perfEnd = Date.now();
+        console.log(`⏱️ [PERF] OpenAI completed in ${perfEnd - perfStart}ms`);
+
         const content = completion.choices?.[0]?.message?.content || '{}';
         // Strip markdown code blocks that OpenAI sometimes adds despite instructions
         const cleanedContent = content.replace(/```json\s*\n?|```\s*$/g, '').trim();
         llmJson = JSON.parse(cleanedContent);
+        console.log(`✅ [PERF] JSON parsed successfully`);
       } catch (err) {
-        console.warn('⚠️ LLM evaluation parsing failed, using heuristic fallback. Error:', (err as Error).message);
+        const perfEnd = Date.now();
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.error(`❌ [PERF] OpenAI evaluation failed after ${perfEnd - perfStart}ms: ${errorMessage}`);
+
+        // Check if it's a timeout error
+        if (errorMessage.includes('timeout') || errorMessage.includes('ETIMEDOUT') || errorMessage.includes('ECONNABORTED')) {
+          console.warn('⏰ OpenAI request timed out - using heuristic fallback');
+        } else {
+          console.warn('⚠️ LLM evaluation parsing failed, using heuristic fallback. Error:', errorMessage);
+        }
       }
 
       // Map LLM output to evaluation structure

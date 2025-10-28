@@ -6,7 +6,7 @@
   "functions": {
     "api/index.js": {
       "runtime": "@vercel/node@5.3.13",
-      "maxDuration": 30,
+      "maxDuration": 60,
       "memory": 1024
     },
     "api/scenarios.js": {

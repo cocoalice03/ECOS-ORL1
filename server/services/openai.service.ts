@@ -4,6 +4,8 @@ import { RAGContent } from '../types.js';
 // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_KEY || "",
+  timeout: 45000, // 45 second timeout for API calls (prevents serverless timeout)
+  maxRetries: 1, // Retry once on failure
 });
 
 export class OpenAIService {
