@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Play, Clock, CheckCircle2, AlertCircle, BarChart3, FileText, Calendar, CheckCircle, BookOpen, TrendingUp } from "lucide-react";
 import PatientSimulator from "@/components/ecos/PatientSimulator";
 import EvaluationReport from "@/components/ecos/EvaluationReport";
@@ -26,6 +27,8 @@ export default function StudentPage({ email: emailProp }: StudentPageProps) {
   const [showDiagnostic, setShowDiagnostic] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
+  const [showInstructionPopup, setShowInstructionPopup] = useState(false);
+  const [pendingScenarioId, setPendingScenarioId] = useState<number | null>(null);
 
   // Use email from props (legacy) or from authenticated user
   const email = emailProp || user?.email || '';
@@ -132,7 +135,18 @@ export default function StudentPage({ email: emailProp }: StudentPageProps) {
   });
 
   const handleStartSession = (scenarioId: number) => {
-    startSessionMutation.mutate(scenarioId);
+    // Show instruction popup first
+    setPendingScenarioId(scenarioId);
+    setShowInstructionPopup(true);
+  };
+
+  const handleConfirmStart = () => {
+    // Close popup and start session
+    setShowInstructionPopup(false);
+    if (pendingScenarioId !== null) {
+      startSessionMutation.mutate(pendingScenarioId);
+      setPendingScenarioId(null);
+    }
   };
 
   // Auto-start session if scenario parameter is provided in URL
@@ -614,6 +628,30 @@ export default function StudentPage({ email: emailProp }: StudentPageProps) {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Instruction Popup */}
+      <Dialog open={showInstructionPopup} onOpenChange={setShowInstructionPopup}>
+        <DialogContent className="max-w-4xl w-full p-0 overflow-hidden">
+          <div className="relative">
+            <img
+              src="/images/ecos_fpv_final_v2.png"
+              alt="Instructions pour l'examen"
+              className="w-full h-auto"
+            />
+            <div className="p-6 flex justify-center">
+              <Button
+                onClick={handleConfirmStart}
+                size="lg"
+                className="px-8 py-6 text-lg"
+                disabled={startSessionMutation.isPending}
+              >
+                <Play className="w-5 h-5 mr-2" />
+                {startSessionMutation.isPending ? "Démarrage..." : "Commencer l'examen"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
